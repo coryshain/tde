@@ -5,6 +5,7 @@ Term Discovery Evaluation
 DESCRIPTION
 
 * Free software: GPLv3 license
+* Extended to support phone-level segmentation eval
 
 
 FREEZING
