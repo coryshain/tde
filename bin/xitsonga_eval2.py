@@ -183,7 +183,7 @@ def group(disc_clsdict, fragments_within, fragments_cross, dest, verbose, n_jobs
                                  sum(map(len, fragments_within))))
 
 
-def _token_type_sub(clsdict, wrd_corpus, names, label, verbose, n_jobs):
+def _token_type_sub(clsdict, wrd_corpus, names, label, verbose, n_jobs, threshold=0.03):
     et = evaluate_token_type
     if verbose:
         print '  token/type ({2}): subsampled {0} files in {1} sets'\
@@ -191,7 +191,8 @@ def _token_type_sub(clsdict, wrd_corpus, names, label, verbose, n_jobs):
     with verb_print('  token/type ({0}): calculating scores'
                              .format(label), verbose, False, True, False):
         pto, rto, pty, rty = izip(*(et(clsdict.restrict(ns, False),
-                                       wrd_corpus.restrict(ns))
+                                       wrd_corpus.restrict(ns),
+                                       threshold=threshold)
                                     for ns in names))
     pto, rto, pty, rty = np.array(pto), np.array(rto), np.array(pty), np.array(rty)
     pto, rto = praggregate(pto, rto)
@@ -200,13 +201,13 @@ def _token_type_sub(clsdict, wrd_corpus, names, label, verbose, n_jobs):
     return pto, rto, pty, rty
 
 
-def token_type(disc_clsdict, wrd_corpus, fragments_within, fragments_cross,
-               dest, verbose, n_jobs):
+def token_type_phn(disc_clsdict, wrd_corpus, fragments_within, fragments_cross,
+                   dest, verbose, n_jobs, threshold=0.02):
     if verbose:
-        print banner('TOKEN/TYPE')
+        print banner('TOKEN/TYPE (PHN)')
     ptoc, rtoc, ptyc, rtyc = _token_type_sub(disc_clsdict, wrd_corpus,
                                              fragments_cross, 'cross',
-                                             verbose, n_jobs)
+                                             verbose, n_jobs, threshold=threshold)
     ftoc = np.fromiter((fscore(ptoc[i], rtoc[i]) for i in xrange(ptoc.shape[0])),
                        dtype=np.double)
     ftyc = np.fromiter((fscore(ptyc[i], rtyc[i]) for i in xrange(ptyc.shape[0])),
@@ -214,12 +215,50 @@ def token_type(disc_clsdict, wrd_corpus, fragments_within, fragments_cross,
 
     ptow, rtow, ptyw, rtyw = _token_type_sub(disc_clsdict, wrd_corpus,
                                              fragments_within, 'within',
-                                             verbose, n_jobs)
+                                             verbose, n_jobs, threshold=threshold)
     ftow = np.fromiter((fscore(ptow[i], rtow[i]) for i in xrange(ptow.shape[0])),
                        dtype=np.double)
     ftyw = np.fromiter((fscore(ptyw[i], rtyw[i]) for i in xrange(rtyw.shape[0])),
                        dtype=np.double)
-    with open(path.join(dest, 'token_type'), 'w') as fid:
+    with open(path.join(dest, 'token_type_phn'), 'w') as fid:
+        fid.write(pretty_score_f(ptoc, rtoc, ftoc, 'token total',
+                                 len(fragments_cross),
+                                 sum(map(len, fragments_cross))))
+        fid.write('\n')
+        fid.write(pretty_score_f(ptyc, rtyc, ftyc, 'type total',
+                                 len(fragments_cross),
+                                 sum(map(len, fragments_cross))))
+        fid.write('\n')
+        fid.write(pretty_score_f(ptow, rtow, ftow, 'token within-speaker only',
+                                 len(fragments_within),
+                                 sum(map(len, fragments_within))))
+        fid.write('\n')
+        fid.write(pretty_score_f(ptyw, rtyw, ftyw, 'type within-speaker only',
+                                 len(fragments_within),
+                                 sum(map(len, fragments_within))))
+
+
+
+def token_type_wrd(disc_clsdict, wrd_corpus, fragments_within, fragments_cross,
+                   dest, verbose, n_jobs, threshold=0.02):
+    if verbose:
+        print banner('TOKEN/TYPE (WRD)')
+    ptoc, rtoc, ptyc, rtyc = _token_type_sub(disc_clsdict, wrd_corpus,
+                                             fragments_cross, 'cross',
+                                             verbose, n_jobs, threshold=threshold)
+    ftoc = np.fromiter((fscore(ptoc[i], rtoc[i]) for i in xrange(ptoc.shape[0])),
+                       dtype=np.double)
+    ftyc = np.fromiter((fscore(ptyc[i], rtyc[i]) for i in xrange(ptyc.shape[0])),
+                       dtype=np.double)
+
+    ptow, rtow, ptyw, rtyw = _token_type_sub(disc_clsdict, wrd_corpus,
+                                             fragments_within, 'within',
+                                             verbose, n_jobs, threshold=threshold)
+    ftow = np.fromiter((fscore(ptow[i], rtow[i]) for i in xrange(ptow.shape[0])),
+                       dtype=np.double)
+    ftyw = np.fromiter((fscore(ptyw[i], rtyw[i]) for i in xrange(rtyw.shape[0])),
+                       dtype=np.double)
+    with open(path.join(dest, 'token_type_wrd'), 'w') as fid:
         fid.write(pretty_score_f(ptoc, rtoc, ftoc, 'token total',
                                  len(fragments_cross),
                                  sum(map(len, fragments_cross))))
@@ -285,16 +324,16 @@ def nlp(disc_clsdict, gold_clsdict, fragments_within, fragments_cross,
                                        sum(map(len, fragments_cross))))
 
 
-def _boundary_sub(disc_clsdict, corpus, names, label, verbose, n_jobs):
+def _boundary_sub(disc_clsdict, corpus, names, label, verbose, n_jobs, threshold=0.03):
     eb = eval_from_bounds
     if verbose:
         print '  boundary ({2}): subsampled {0} files in {1} sets'\
             .format(sum(map(len, names)), len(names), label)
     with verb_print('  boundary ({0}): calculating scores'
                              .format(label), verbose, True, True, True):
-        disc_bounds = [Boundaries(disc_clsdict.restrict(ns))
+        disc_bounds = [Boundaries(disc_clsdict.restrict(ns), threshold=threshold)
                        for ns in names]
-        gold_bounds = [Boundaries(corpus.restrict(ns))
+        gold_bounds = [Boundaries(corpus.restrict(ns), threshold=threshold)
                        for ns in names]
     with verb_print('  boundary ({0}): calculating scores'
                              .format(label), verbose, False, True, False):
@@ -307,17 +346,37 @@ def _boundary_sub(disc_clsdict, corpus, names, label, verbose, n_jobs):
     return p, r
 
 
-def boundary(disc_clsdict, corpus, fragments_within, fragments_cross,
-               dest, verbose, n_jobs):
+def boundary_phn(disc_clsdict, corpus, fragments_within, fragments_cross,
+                 dest, verbose, n_jobs, threshold=0.02):
     if verbose:
-        print banner('BOUNDARY')
+        print banner('BOUNDARY (PHN)')
     pc, rc = _boundary_sub(disc_clsdict, corpus, fragments_cross,
-                           'cross', verbose, n_jobs)
+                           'cross', verbose, n_jobs, threshold=threshold)
     fc = np.fromiter((fscore(pc[i], rc[i]) for i in xrange(pc.shape[0])), dtype=np.double)
     pw, rw = _boundary_sub(disc_clsdict, corpus, fragments_within,
-                           'within', verbose, n_jobs)
+                           'within', verbose, n_jobs, threshold=threshold)
     fw = np.fromiter((fscore(pw[i], rw[i]) for i in xrange(pw.shape[0])), dtype=np.double)
-    with open(path.join(dest, 'boundary'), 'w') as fid:
+    with open(path.join(dest, 'boundary_phn'), 'w') as fid:
+        fid.write(pretty_score_f(pc, rc, fc, 'boundary total',
+                                 len(fragments_cross),
+                                 sum(map(len, fragments_cross))))
+        fid.write('\n')
+        fid.write(pretty_score_f(pw, rw, fw, 'boundary within-speaker only',
+                                 len(fragments_within),
+                                 sum(map(len, fragments_within))))
+
+
+def boundary_wrd(disc_clsdict, corpus, fragments_within, fragments_cross,
+                 dest, verbose, n_jobs, threshold=0.03):
+    if verbose:
+        print banner('BOUNDARY (WRD)')
+    pc, rc = _boundary_sub(disc_clsdict, corpus, fragments_cross,
+                           'cross', verbose, n_jobs, threshold=threshold)
+    fc = np.fromiter((fscore(pc[i], rc[i]) for i in xrange(pc.shape[0])), dtype=np.double)
+    pw, rw = _boundary_sub(disc_clsdict, corpus, fragments_within,
+                           'within', verbose, n_jobs, threshold=threshold)
+    fw = np.fromiter((fscore(pw[i], rw[i]) for i in xrange(pw.shape[0])), dtype=np.double)
+    with open(path.join(dest, 'boundary_wrd'), 'w') as fid:
         fid.write(pretty_score_f(pc, rc, fc, 'boundary total',
                                  len(fragments_cross),
                                  sum(map(len, fragments_cross))))
@@ -385,9 +444,9 @@ if __name__ == '__main__':
             description='Evaluate spoken term discovery on the xitsonga dataset',
             epilog="""Example usage:
 
-$ ./xitsonga_eval2 my_sample.classes resultsdir/
+$ ./xitsonga_eval2 my_xitsonga.classes resultsdir/
 
-evaluates STD output `my_sample.classes` on the xitsonga dataset and stores the
+evaluates STD output `my_xitsonga.classes` on the xitsonga dataset and stores the
 output in `resultsdir/`.
 
 Classfiles must be formatted like this:
@@ -452,7 +511,6 @@ fileID starttime endtime
         rdir = path.dirname(path.realpath(__file__))
         resource_dir = path.join(rdir, 'resources')
 
-
     fragments_cross_file  = path.join(resource_dir, 'xitsonga.intervals.cross')
     fragments_within_file = path.join(resource_dir, 'xitsonga.intervals.within')
     gold_clsfile          = path.join(resource_dir, 'xitsonga.classes')
@@ -462,7 +520,7 @@ fileID starttime endtime
 
     if verbose:
         print 'xitsonga_eval2 version {0}'.format(VERSION)
-        print '----------------------------'
+        print '--------------------------'
         print 'dataset:     xitsonga'
         print 'inputfile:   {0}'.format(disc_clsfile)
         print 'destination: {0}'.format(dest)
@@ -499,13 +557,17 @@ fileID starttime endtime
         group(disc_clsdict, fragments_within, fragments_cross, dest, verbose,
               n_jobs)
     if do_all or 'token/type' in measures:
-        token_type(disc_clsdict, wrd_corpus, fragments_within, fragments_cross,
-                   dest, verbose, n_jobs)
+        token_type_phn(disc_clsdict, phn_corpus, fragments_within, fragments_cross,
+                       dest, verbose, n_jobs)
+        token_type_wrd(disc_clsdict, wrd_corpus, fragments_within, fragments_cross,
+                       dest, verbose, n_jobs)
     if do_all or 'nlp' in measures:
         nlp(disc_clsdict, gold_clsdict, fragments_within, fragments_cross,
             dest, verbose, n_jobs)
     if do_all or 'boundary' in measures:
-        boundary(disc_clsdict, wrd_corpus, fragments_within, fragments_cross,
-                 dest, verbose, n_jobs)
+        boundary_phn(disc_clsdict, phn_corpus, fragments_within, fragments_cross,
+                     dest, verbose, n_jobs)
+        boundary_wrd(disc_clsdict, wrd_corpus, fragments_within, fragments_cross,
+                     dest, verbose, n_jobs)
     if verbose:
         print 'All done. Results stored in {0}'.format(dest)

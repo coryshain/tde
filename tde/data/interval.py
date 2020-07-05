@@ -16,6 +16,7 @@ interval_cmp
 """
 
 import bisect
+import math
 from pprint import pformat
 
 import numpy as np
@@ -69,6 +70,8 @@ class Interval(object):
     """
     def __init__(self, start, end,
                  minimum_overlap=0.03, minimum_overlap_fraction=0.5):
+        start = math.round(start, 3)
+        end = math.round(end, 3)
         if end < start:
             raise ValueError('end must be greater than start')
         if start < 0 or end < 0:

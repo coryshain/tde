@@ -8,7 +8,7 @@ from tde.util.printing import verb_print
 from tde.util.functions import unique, iterator_length
 
 def evaluate_token_type(disc_clsdict, wrd_corpus,
-                        verbose=False, debug=False):
+                        verbose=False, threshold=0.03, debug=False):
     n_word_tokens = iterator_length(unique(wrd_corpus.iter_fragments()))
     word_types = set(f.mark for f in wrd_corpus.iter_fragments())
     n_word_types = len(word_types)
@@ -27,9 +27,9 @@ def evaluate_token_type(disc_clsdict, wrd_corpus,
             if len(wrd_tokens) != 1:
                 continue
             goldtok = wrd_tokens[0]
-            if abs(goldtok.interval.start - disc_start) > 0.03:
+            if abs(goldtok.interval.start - disc_start) > threshold:
                 continue
-            if abs(goldtok.interval.end - disc_end) > 0.03:
+            if abs(goldtok.interval.end - disc_end) > threshold:
                 continue
             types_hit.add(goldtok.mark)
             hits += 1
